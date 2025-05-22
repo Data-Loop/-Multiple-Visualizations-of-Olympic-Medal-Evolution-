@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Olympic Data Visualizations</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
+    <style>
+        .viz-container {
+            border-radius: 10px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            background-color: white;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .control-panel {
+            border-radius: 10px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        
+        .tooltip {
+            position: absolute;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 5px;
+            pointer-events: none;
+            font-size: 14px;
+        }
+        
+        #heatmapContainer, #sankeyContainer {
+            min-height: 600px;
+        }
+        
+        .node rect {
+            cursor: move;
+            fill-opacity: .9;
+            shape-rendering: crispEdges;
+        }
+
+        .node text {
+            pointer-events: none;
+            text-shadow: 0 1px 0 #fff;
+        }
+
+        .link {
+            fill: none;
+            stroke: #000;
+            stroke-opacity: .2;
+        }
+
+        .link:hover {
+            stroke-opacity: .5;
+        }
+        
+        .cell-hover {
+            stroke: #000;
+            stroke-width: 1px;
+        }
+        
+        .dendrogram path {
+            fill: none;
+            stroke: #555;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-bar-chart-line-fill me-2"></i>Olympic Data Visualization
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/medals-evolution">
+                            <i class="bi bi-trophy me-1"></i>Medal Evolution
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/host-city-performance">
+                            <i class="bi bi-geo-alt me-1"></i>Host City Performance
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/sport-dominance">
+                            <i class="bi bi-graph-up me-1"></i>Sport Dominance
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/advanced-visualizations">
+                            <i class="bi bi-stars me-1"></i>Advanced Visualizations
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4 mb-5">
+        <div class="row mb-4">
+            <div class="col-12">
+                <h1><i class="bi bi-stars me-2"></i>Advanced Olympic Data Visualizations</h1>
+                <p class="lead">Explore complex Olympic data patterns through high-dimensional and graph-based visualizations</p>
+            </div>
+        </div>
+
+        <!-- Medal Matrix Heatmap Section -->
+        <div class="row mb-5">
+            <div class="col-12">
+                <div class="viz-container">
+                    <h2 class="mb-3"><i class="bi bi-grid-3x3 me-2"></i>High-Dimensional Data Visualization: Olympic Medal Matrix Heatmap</h2>
+                    <p>This heatmap displays the distribution of Olympic medals across countries and sports, with hierarchical clustering to identify similar patterns.</p>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="medalTypeHeatmap">Medal Type:</label>
+                                <select class="form-select" id="medalTypeHeatmap">
+                                    <option value="total" selected>Total Medals</option>
+                                    <option value="gold">Gold Medals</option>
+                                    <option value="silver">Silver Medals</option>
+                                    <option value="bronze">Bronze Medals</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="yearRangeHeatmap">Olympics Year:</label>
+                                <select class="form-select" id="yearRangeHeatmap">
+                                    <option value="all">All Years</option>
+                                    <option value="recent" selected>Recent (2000-2020)</option>
+                                    <option value="1990s">1990s</option>
+                                    <option value="1980s">1980s</option>
+                                    <option value="1970s">1970s</option>
+                                    <option value="historical">Historical (Pre-1970)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="countryCount">Top Countries:</label>
+                                <select class="form-select" id="countryCount">
+                                    <option value="15">Top 15</option>
+                                    <option value="25" selected>Top 25</option>
+                                    <option value="40">Top 40</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="clusterToggle">Clustering:</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="clusterToggle" checked>
+                                    <label class="form-check-label" for="clusterToggle">Apply Hierarchical Clustering</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="heatmapContainer"></div>
+                    <div id="heatmapLegend" class="mt-3 text-center"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Medal Flow Sankey Diagram Section -->
+        <div class="row mb-5">
+            <div class="col-12">
+                <div class="viz-container">
+                    <h2 class="mb-3"><i class="bi bi-diagram-3 me-2"></i>Graph Data Visualization: Olympic Medal Flow Sankey Diagram</h2>
+                    <p>This Sankey diagram shows how Olympic medals flow between years, sports, and countries, revealing patterns in medal distribution over time.</p>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="medalTypeSankey">Medal Type:</label>
+                                <select class="form-select" id="medalTypeSankey">
+                                    <option value="total" selected>Total Medals</option>
+                                    <option value="gold">Gold Medals</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="flowType">Flow Type:</label>
+                                <select class="form-select" id="flowType">
+                                    <option value="year-sport-country" selected>Year → Sport → Country</option>
+                                    <option value="year-country-sport">Year → Country → Sport</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="nodeLimitSankey">Show Top Items:</label>
+                                <select class="form-select" id="nodeLimitSankey">
+                                    <option value="10">Top 10 per Category</option>
+                                    <option value="15" selected>Top 15 per Category</option>
+                                    <option value="25">Top 25 per Category</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="sankeyContainer"></div>
+                    <div class="small text-muted mt-2">
+                        * Hover over nodes and links to see detailed information. Nodes can be dragged to adjust the visualization.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer py-3 bg-dark text-white">
+        <div class="container text-center">
+            <span>Olympic Data Visualization Project © 2023</span>
+            <div class="mt-2">
+                <small>Data sourced from Olympic records | Created with D3.js and Flask</small>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/advanced_visualizations.js') }}"></script>
+</body>
+</html> 
